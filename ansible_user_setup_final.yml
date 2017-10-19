@@ -1,0 +1,51 @@
+#
+#This is ansile playbook to setup ansible itself from cetntral node 
+#to  all collector nodes by creating pentester user in central 
+#and ssh-copy-id of root while creating ansible-automation ssh access
+- hosts: remote 
+  user: pentester
+  become: yes
+#  become_user: root
+  become_method: sudo
+  become_user: root 
+  vars:
+    user: ansible-automation
+    #user: ansible-automation
+    ansible_use_port: "22"
+    crypted_password: "p@ssw0rd" 
+  tasks:
+    - name: Create User Accounts for ansible automation on collector nodes.
+      user:
+        name: "{{ user }}"
+        password: "{{ crypted_password  }}"
+    - name: Create remote ssh dir.
+      file:
+        path: /home/{{ user }}/.ssh/
+        state: directory
+    - name: Add created user:{{ user }} to sudoers.
+      lineinfile:
+        dest: /etc/sudoers
+        backup: yes
+        regexp: '^'
+        line: "{{ user }} ALL=(ALL) NOPASSWD: ALL"
+        state: present
+        validate: 'visudo -cf %s'
+        insertafter: EOF
+    - name: Add ansible-automation user to  /etc/ssh/sshd_config AllowedUsers.
+      lineinfile:
+        dest: /etc/ssh/sshd_config
+        backup: yes
+        regexp: '^(AllowUsers.*)$'
+        line: '\1 {{ user }}'
+        state: present
+        backrefs: yes
+    - name: Restart sshd Service.
+      service:
+        name: sshd
+        state: restarted
+
+    - name: Copy SSH keys over
+      copy: src=/root/.ssh/id_rsa.pub dest=/home/{{user}}/.ssh/authorized_keys owner={{user}} group={{user}} mode=0600
+
+
+
